@@ -15,4 +15,9 @@ cnavs {
     font-size: 14px;
     -webkit-user-select: none;
     user-select: none;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+#leaderboard {
+    margin-bottom: 8px;
 }

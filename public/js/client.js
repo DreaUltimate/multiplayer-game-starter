@@ -11,9 +11,40 @@ const x = canvas.width / 2;
 const y = canvas.height / 2;
 
 const players = {};
+const projectiles = {};
+
+socket.on('connect', () => {
+    socket.emit('initCanvas', { width: canvas.width, height: canvas.height, pixelRatio });
+})
+
 const speed = 15;
 const playerInputs = [];
 let sequenceNumber = 0;
+
+socket.on('updateProjectiles', (data) => {
+    for (const id in data) {
+        const projectile = data[id];
+
+        if (!projectiles[id]) {
+            projectiles[id] = new Projectile({
+                x: projectile.x,
+                y: projectile.y,
+                radius: 5,
+                color: players[projectile.playerId]?.color,
+                velocity: projectile.velocity
+            });
+        } else {
+            projectiles[id].x += data[id].velocity.x
+            projectiles[id].y += data[id].velocity.y
+        }
+    }
+
+    for (const id in projectiles) {
+        if (!data[id]) {
+            delete projectiles[id];
+        }
+    }
+});
 
 socket.on('updatePlayers', (data) => {
     for (const id in data) {
@@ -26,7 +57,33 @@ socket.on('updatePlayers', (data) => {
                 radius: 8,
                 color: newPlayer.color
             });
+
+            $('#playerLabels').append(
+                `<div data-id="${id}" data-score="${newPlayer.score}">${id}: ${newPlayer.score}</div>`
+            )
         } else {
+            //sorting
+            document.querySelector(`div[data-id="${id}"]`).innerHTML = `${id}: ${newPlayer.score}`;
+            document.querySelector(`div[data-id="${id}"]`).setAttribute('data-score', newPlayer.score);
+            const parentDiv = document.querySelector(`#playerLabels`);
+            const childDivs = Array.from(parentDiv.querySelectorAll('div'));
+
+            childDivs.sort((a, b) => {
+                const scoreA =  Number(a.getAttribute('data-score'));
+                const scoreB =  Number(b.getAttribute('data-score'));
+
+
+                return scoreB - scoreA;
+            })
+
+            childDivs.forEach(div => {
+                parentDiv.removeChild(div);
+            })
+
+            childDivs.forEach(div => {
+                parentDiv.appendChild(div);
+            })
+
             if (id === socket.id) {
                 players[id].x = newPlayer.x
                 players[id].y = newPlayer.y
@@ -53,6 +110,8 @@ socket.on('updatePlayers', (data) => {
 
     for (const id in players) {
         if (!data[id]) {
+            const divToDelete = document.querySelector(`div[data-id="${id}"]`);
+            divToDelete.parentNode.removeChild(divToDelete);
             delete players[id];
         }
     }
@@ -69,6 +128,16 @@ function animate() {
         const player = players[id];
         player.draw();
     }
+
+    for (const id in projectiles) {
+        const projectile = projectiles[id];
+        projectile.draw();
+    }
+
+    // for (let i = projectiles.length - 1; i >= 0; i--) {
+    //     const projectile = projectiles[i];
+    //     projectile.update();
+    // }
 }
 
 animate();
