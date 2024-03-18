@@ -2,6 +2,11 @@ body {
     margin: 0;
 }
 
+cnavs {
+    width: 100%;
+    height: 100%;
+}
+
 .main {
     position: absolute;
     color: white;
