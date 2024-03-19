@@ -10,9 +10,10 @@ app.use(express.static(path.join(__dirname, './public')));
 
 const players = {}
 const projectiles = {};
+const users = {};
 
 const speed = 15;
-const radius = 8;
+const radius = 5;
 let projectileId = 0;
 
 app.get('/', (req, res) => {
@@ -20,28 +21,8 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', function (socket) {
-    players[socket.id] = {
-        x: Math.floor(Math.random() * 501),
-        y: Math.floor(Math.random() * 501),
-        color: `hsl(${Math.floor(361 * Math.random())}, 100%, 50%)`,
-        sequenceNumber: 0,
-        score: 0
-    }
 
     io.emit('updatePlayers', players);
-
-    socket.on('initCanvas', ({width, height, pixelRatio}) => {
-        players[socket.id].canvas = {
-            width,
-            height
-        }
-
-        players[socket.id].radius = radius;
-
-        if (pixelRatio > 1) {
-            players[socket.id].radius = 2 * radius;
-        }
-    })
 
     socket.on('shoot', ({x, y, angle}) => {
         projectileId++;
@@ -60,22 +41,78 @@ io.on('connection', function (socket) {
 
     })
 
+    socket.on('initGame', ({username, width, height}) => {
+        players[socket.id] = {
+            x: Math.floor(Math.random() * 1025),
+            y: Math.floor(Math.random() * 577),
+            color: `hsl(${Math.floor(361 * Math.random())}, 100%, 50%)`,
+            sequenceNumber: 0,
+            score: 0,
+            username
+        }
+
+        players[socket.id].canvas = {
+            width,
+            height
+        }
+
+        players[socket.id].radius = radius;
+    })
+
     socket.on('disconnect', () => {
         delete players[socket.id];
         io.emit('updatePlayers', players);
     })
 
+    socket.on('send-chat-message', (message) => {
+        socket.broadcast.emit('chat-message', {
+            message: message,
+            name: players[socket.id].username,
+        });
+    });
+
     socket.on('keyDown', ({keyCode, sequenceNumber}) => {
-        players[socket.id].sequenceNumber = sequenceNumber;
+        const player = players[socket.id];
+        const canvasWidth = 1024;
+        const canvasHeight = 576;
+
+        if (!player) {
+            return;
+        }
+
+        player.sequenceNumber = sequenceNumber;
 
         if (keyCode === 'KeyW' || keyCode === 'ArrowUp') {
-            players[socket.id].y -= speed;
+            player.y -= speed;
         } else if (keyCode === 'KeyA' || keyCode === 'ArrowLeft') {
-            players[socket.id].x -= speed;
+            player.x -= speed;
         } else if (keyCode === 'KeyS' || keyCode === 'ArrowDown') {
-            players[socket.id].y += speed;
+            player.y += speed;
         } else if (keyCode === 'KeyD' || keyCode === 'ArrowRight') {
-            players[socket.id].x += speed;
+            player.x += speed;
+        }
+
+        const playerSides = {
+            left: player.x - player.radius,
+            right: player.x + player.radius,
+            top: player.y - player.radius,
+            bottom: player.y + player.radius,
+        }
+
+        if (playerSides.left < 0) {
+            player.x = player.radius;
+        }
+
+        if (playerSides.right > canvasWidth) {
+            player.x = canvasWidth - player.radius;
+        }
+
+        if (playerSides.top < 0) {
+            player.y = player.radius;
+        }
+
+        if (playerSides.bottom > canvasHeight) {
+            player.y = canvasHeight - player.radius;
         }
     })
 
